@@ -3,7 +3,8 @@ import { hash, compare } from "bcrypt";
 import { endpoints } from "../utils/endpoints.js";
 import { findUserbyEmail, createUser } from "../repositories/userRepository.js";
 import { createToken } from "../utils/jwt.js";
-
+import { sendEmail } from "./emailService.js";
+import { welcomeEmailTemplate } from "../emailTemplates/welcomeTemplate.js";
 export const signUpService = async (data) => {
     const { firstName, lastName, email, phone, password, city } = data;
     if (!firstName || !lastName || !email || !phone || !password || !city) {
@@ -25,6 +26,11 @@ export const signUpService = async (data) => {
         phone,
     };
     const user = await createUser(payload);
+    sendEmail({
+        to: user.email,
+        subject: "Welcome to Travel App 🎉",
+        html: welcomeEmailTemplate(user.firstName),
+    });
     return user;
 };
 export const loginService = async (data) => {
