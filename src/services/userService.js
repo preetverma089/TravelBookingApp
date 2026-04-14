@@ -1,16 +1,17 @@
 import { userModel } from "../models/userModel.js";
 import { hash, compare } from "bcrypt";
 import { endpoints } from "../utils/endpoints.js";
-import { findUserbyEmail, createUser } from "../repositories/userRepository.js";
+import { findUserbyEmail, createUser, changePassword, findUserPassword } from "../repositories/userRepository.js";
 import { createToken } from "../utils/jwt.js";
 import { sendEmail } from "./emailService.js";
 import { welcomeEmailTemplate } from "../emailTemplates/welcomeTemplate.js";
+
 export const signUpService = async (data) => {
     const { firstName, lastName, email, phone, password, city } = data;
     if (!firstName || !lastName || !email || !phone || !password || !city) {
         throw new Error("all fields are mandatory!!");
     }
-    const normalizedEmail = email.toLowerCase(); // normalized krna important h 
+    const normalizedEmail = email.toLowerCase(); // normalized krna important h
     const isUserEmailExists = await findUserbyEmail(normalizedEmail);
     if (isUserEmailExists)
         throw new Error("email already exists, please try with another email");
@@ -55,3 +56,29 @@ export const loginService = async (data) => {
         AccessToken: token,
     };
 };
+export const profileService = async (data) => {
+    const { userEmail } = data;
+    if (!userEmail) throw new Error("invalid user")
+    const userDetails = await findUserbyEmail(userEmail)
+    if (!userDetails)
+        throw new Error("User not found, please signup first");
+    delete userDetails.password;
+    return userDetails;
+}
+export const changePasswordService = async (userDetail, passwordDetail) => {
+    const { userId: id } = userDetail;
+    const { newPassword, oldPassword } = passwordDetail;
+    if (!id)
+        throw new Error("Invalid user")
+    if (!newPassword)
+        throw new Error("New Passoword required for change password")
+    const user = await findUserPassword(id);
+    const oldPasswordCompare = await compare(oldPassword, user.password);
+    if (!oldPasswordCompare) throw new Error("old password not matched");
+    const saltRounds = parseInt(endpoints.saltRounds);
+    const hashedPassword = await hash(newPassword, saltRounds);
+    if (!hashedPassword) throw new Error("Password not hashed");
+    const payload = { id, newPassword: hashedPassword }
+    const isPasswordChanged = await changePassword(payload);
+    return isPasswordChanged;
+}
